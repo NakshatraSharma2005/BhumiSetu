@@ -1,0 +1,285 @@
+// Prisma schema for BhoomiSetu - Real-Time National Land Acquisition & Management System
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  CENTRAL
+  STATE
+  DISTRICT
+  PROJECT_OFFICER
+  CITIZEN
+}
+
+enum ProjectType {
+  HIGHWAY
+  RAIL
+  CORRIDOR
+  IRRIGATION
+  AIRPORT
+  POWER
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum AcquisitionStatus {
+  NOT_STARTED
+  VERIFICATION
+  NOTIFICATION
+  OBJECTION
+  COMPENSATION_PROCESSING
+  COMPENSATION_PAID
+  POSSESSION
+  ACQUIRED
+  LEGAL_DISPUTE
+}
+
+enum LegalStatus {
+  NONE
+  DISPUTE_PENDING
+  RESOLVED
+}
+
+enum RRStatus {
+  NOT_ASSESSED
+  ELIGIBLE
+  DOCS_PENDING
+  PROCESSING
+  COMPLETED
+}
+
+enum DocumentType {
+  OWNERSHIP
+  SURVEY
+  NOTIFICATION
+  COMPENSATION
+  LEGAL
+  RR
+}
+
+enum DocumentStatus {
+  PENDING
+  VERIFIED
+  MISMATCH
+}
+
+enum CompensationStatus {
+  NOT_ASSESSED
+  PARTIALLY_PAID
+  FULLY_PAID
+}
+
+enum LegalCaseStatus {
+  OPEN
+  CLOSED
+  UNDER_INVESTIGATION
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum TaskType {
+  FIELD_VERIFICATION
+  DOCUMENT_REVIEW
+  COMPENSATION_CALCULATION
+  LEGAL_PROCESSING
+  RR_PROCESSING
+  SITE_VISIT
+  MEETING
+  REPORT_GENERATION
+}
+
+enum ProjectRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model User {
+  id            String   @id @default(uuid())
+  name          String
+  role          UserRole
+  state         String
+  district      String
+  email         String   @unique
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  projects      Project[] @relation("ProjectOwner")
+  tasks         Task[]    @relation("TaskAssignee")
+  
+  @@index([state, district])
+}
+
+model Project {
+  id                  String   @id @default(uuid())
+  name                String
+  type                ProjectType
+  state               String
+  district            String
+  status              ProjectStatus
+  startDate           DateTime
+  targetDate          DateTime
+  totalParcels        Int
+  landRequiredAcres   Float
+  landAcquiredAcres   Float
+  compensationAssessed Float   @default(0)
+  compensationPaid    Float   @default(0)
+  riskScore           Float?
+  riskLevel           ProjectRiskLevel?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  // Relations
+  owner               User     @relation("ProjectOwner", fields: [ownerId], references: [id])
+  ownerId             String
+  landParcels         LandParcel[]
+  tasks               Task[]    @relation("ProjectTasks")
+  
+  @@index([state, district])
+  @@index([ownerId])
+}
+
+model Landowner {
+  id            String   @id @default(uuid())
+  name          String
+  contactInfo   Json
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  landParcels   LandParcel[]
+}
+
+model LandParcel {
+  id                String   @id @default(uuid())
+  projectId         String
+  parcelCode        String   @unique
+  surveyNumber      String
+  ownerId           String
+  areaAcres         Float
+  village           String
+  district          String
+  state             String
+  geometry          Json
+  acquisitionStatus AcquisitionStatus
+  legalStatus       LegalStatus
+  rrStatus          RRStatus
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  project           Project     @relation(fields: [projectId], references: [id])
+  owner             Landowner   @relation(fields: [ownerId], references: [id])
+  documents         Document[]  @relation("ParcelDocuments")
+  legalCases        LegalCase[] @relation("ParcelLegalCases")
+  compensation      Compensation? @relation("ParcelCompensation")
+  rrRecords         RRRecord[]  @relation("ParcelRRRecords")
+  tasks             Task[]      @relation("ParcelTasks")
+  
+  @@index([projectId])
+  @@index([ownerId])
+  @@index([parcelCode])
+}
+
+model Document {
+  id                  String   @id @default(uuid())
+  parcelId            String
+  type                DocumentType
+  status              DocumentStatus
+  extractedFields     Json?
+  dbComparisonResult  Json?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  // Relations
+  parcel              LandParcel @relation("ParcelDocuments", fields: [parcelId], references: [id])
+  
+  @@index([parcelId])
+}
+
+model Compensation {
+  id            String   @id @default(uuid())
+  parcelId      String   @unique
+  assessedAmount Float
+  paidAmount    Float    @default(0)
+  status        CompensationStatus
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  parcel        LandParcel @relation("ParcelCompensation", fields: [parcelId], references: [id])
+  
+  @@index([parcelId])
+}
+
+model LegalCase {
+  id            String   @id @default(uuid())
+  parcelId      String
+  caseId        String
+  issueType     String
+  status        LegalCaseStatus
+  daysPending   Int
+  responsibleDept String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  parcel        LandParcel @relation("ParcelLegalCases", fields: [parcelId], references: [id])
+  
+  @@index([parcelId])
+}
+
+model RRRecord {
+  id        String   @id @default(uuid())
+  parcelId  String
+  familyId  String
+  status    RRStatus
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  parcel    LandParcel @relation("ParcelRRRecords", fields: [parcelId], references: [id])
+  
+  @@index([parcelId])
+}
+
+model Task {
+  id            String   @id @default(uuid())
+  projectId     String
+  parcelId      String?
+  type          TaskType
+  description   String
+  responsibleRole String
+  dueDate       DateTime?
+  daysPending   Int
+  priority      TaskPriority
+  resolved      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  project   Project @relation("ProjectTasks", fields: [projectId], references: [id])
+  parcel    LandParcel? @relation("ParcelTasks", fields: [parcelId], references: [id])
+  assignee  User?     @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  assigneeId String?
+  
+  @@index([projectId])
+  @@index([parcelId])
+  @@index([assigneeId])
+}

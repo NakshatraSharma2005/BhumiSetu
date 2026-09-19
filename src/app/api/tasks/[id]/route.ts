@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { checkRolePermission } from '@/lib/rbac'
 
 export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  // Prototype RBAC: check demo role header
+  const authError = checkRolePermission(request, 'update:task')
+  if (authError) return authError
+
   try {
     const { id } = await context.params
 
@@ -43,10 +48,11 @@ export async function PATCH(
           }
         : null,
     })
-  } catch (error: any) {
-    console.error('Error updating task:', error)
+  } catch (error: unknown) {
+    const err = error as Error
+    console.error('Error updating task:', err)
     return NextResponse.json(
-      { error: 'Failed to update task', details: error.message },
+      { error: 'Failed to update task', details: err.message },
       { status: 500 }
     )
   }

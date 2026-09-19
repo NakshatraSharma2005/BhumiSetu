@@ -191,6 +191,7 @@ model LandParcel {
   compensation      Compensation? @relation("ParcelCompensation")
   rrRecords         RRRecord[]  @relation("ParcelRRRecords")
   tasks             Task[]      @relation("ParcelTasks")
+  fieldVerifications FieldVerification[] @relation("ParcelFieldVerifications")
   
   @@index([projectId])
   @@index([ownerId])
@@ -274,12 +275,40 @@ model Task {
   updatedAt     DateTime @updatedAt
   
   // Relations
-  project   Project @relation("ProjectTasks", fields: [projectId], references: [id])
-  parcel    LandParcel? @relation("ParcelTasks", fields: [parcelId], references: [id])
-  assignee  User?     @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  assigneeId String?
+  project           Project            @relation("ProjectTasks", fields: [projectId], references: [id])
+  parcel            LandParcel?        @relation("ParcelTasks", fields: [parcelId], references: [id])
+  assignee          User?              @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  assigneeId        String?
+  fieldVerification FieldVerification? @relation("TaskFieldVerification")
   
   @@index([projectId])
   @@index([parcelId])
   @@index([assigneeId])
+}
+
+model FieldVerification {
+  id                   String   @id @default(uuid())
+  taskId               String   @unique
+  parcelId             String
+  verifierRole         String
+  checklistParcelId    Boolean  @default(false)
+  checklistBoundary    Boolean  @default(false)
+  checklistArea        Boolean  @default(false)
+  checklistLandUse     Boolean  @default(false)
+  checklistOwnership   Boolean  @default(false)
+  checklistEncumbrance Boolean  @default(false)
+  remarks              String?
+  gpsLat               Float?
+  gpsLng               Float?
+  gpsAccuracy          Float?
+  photoRef             String?
+  submittedAt          DateTime @default(now())
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  task   Task       @relation("TaskFieldVerification", fields: [taskId], references: [id])
+  parcel LandParcel @relation("ParcelFieldVerifications", fields: [parcelId], references: [id])
+
+  @@index([parcelId])
+  @@index([taskId])
 }

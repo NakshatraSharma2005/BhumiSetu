@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useState, useCallback } from 'react'
+import { useRole } from '@/context/RoleContext'
 import {
   ArrowLeft,
   CheckCircle2,
@@ -283,6 +284,7 @@ export default function ProjectTasksClient({
   initialTasks: Task[]
   stats: Stats
 }) {
+  const { activeRole } = useRole()
   const [tasks, setTasks] = useState<Task[]>(initialTasks)
   const [filter, setFilter] = useState<FilterMode>('ALL')
   const [togglingId, setTogglingId] = useState<string | null>(null)
@@ -322,7 +324,10 @@ export default function ProjectTasksClient({
       prev.map(t => t.id === taskId ? { ...t, resolved: !t.resolved } : t)
     )
     try {
-      const res = await fetch(`/api/tasks/${taskId}`, { method: 'PATCH' })
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'x-demo-role': activeRole },
+      })
       if (!res.ok) throw new Error('Server error')
       const updated = await res.json()
       // Sync with server truth
